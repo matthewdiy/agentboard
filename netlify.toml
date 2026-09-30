@@ -1,0 +1,17 @@
+[build]
+  command = "pnpm run build"
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "22"
+
+[dev]
+  command = "pnpm dev"
+  port = 8888
+  targetPort = 3000
+
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    X-Robots-Tag = "noindex, nofollow"

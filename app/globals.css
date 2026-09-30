@@ -1,26 +1,328 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --radius: 0.5rem;
+
+  --background: oklch(0.99 0.002 150);
+  --foreground: oklch(0.18 0.015 150);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.18 0.015 150);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.18 0.015 150);
+
+  /* Brand Green */
+  --primary: oklch(0.48 0.15 152);
+  --primary-foreground: oklch(0.99 0 0);
+
+  --secondary: oklch(0.96 0.006 150);
+  --secondary-foreground: oklch(0.25 0.02 150);
+  --muted: oklch(0.96 0.005 150);
+  --muted-foreground: oklch(0.50 0.015 150);
+  --accent: oklch(0.94 0.015 152);
+  --accent-foreground: oklch(0.22 0.04 152);
+  --destructive: oklch(0.58 0.22 25);
+  --destructive-foreground: oklch(0.99 0 0);
+  --border: oklch(0.90 0.005 150);
+  --input: oklch(0.90 0.005 150);
+  --ring: oklch(0.55 0.16 152);
+
+  --sidebar: oklch(0.98 0.003 150);
+  --sidebar-foreground: oklch(0.20 0.015 150);
+  --sidebar-primary: oklch(0.48 0.15 152);
+  --sidebar-primary-foreground: oklch(0.99 0 0);
+  --sidebar-accent: oklch(0.94 0.015 152);
+  --sidebar-accent-foreground: oklch(0.20 0.03 152);
+  --sidebar-border: oklch(0.91 0.005 150);
+  --sidebar-ring: oklch(0.55 0.16 152);
+}
+
+.dark {
+  --background: oklch(0.14 0.01 150);
+  --foreground: oklch(0.96 0.005 150);
+  --card: oklch(0.17 0.012 150);
+  --card-foreground: oklch(0.96 0.005 150);
+  --popover: oklch(0.17 0.012 150);
+  --popover-foreground: oklch(0.96 0.005 150);
+
+  /* Brand Green in Dark Mode */
+  --primary: oklch(0.68 0.17 152);
+  --primary-foreground: oklch(0.12 0.02 150);
+
+  --secondary: oklch(0.22 0.012 150);
+  --secondary-foreground: oklch(0.96 0.005 150);
+  --muted: oklch(0.21 0.01 150);
+  --muted-foreground: oklch(0.65 0.01 150);
+  --accent: oklch(0.24 0.03 152);
+  --accent-foreground: oklch(0.96 0.005 150);
+  --destructive: oklch(0.65 0.20 22);
+  --destructive-foreground: oklch(0.99 0 0);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 12%);
+  --ring: oklch(0.65 0.17 152);
+
+  --sidebar: oklch(0.12 0.01 150);
+  --sidebar-foreground: oklch(0.94 0.005 150);
+  --sidebar-primary: oklch(0.68 0.17 152);
+  --sidebar-primary-foreground: oklch(0.12 0.02 150);
+  --sidebar-accent: oklch(0.20 0.025 152);
+  --sidebar-accent-foreground: oklch(0.98 0.005 150);
+  --sidebar-border: oklch(1 0 0 / 8%);
+  --sidebar-ring: oklch(0.65 0.17 152);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --radius-sm: calc(var(--radius) - 3px);
+  --radius-md: calc(var(--radius) - 1px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 3px);
+
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::selection {
+    @apply bg-emerald-500/20 text-foreground;
   }
 }
 
-body {
-  background: var(--background);
+/* Slim, clean scrollbar */
+.scrollbar-slim {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+.scrollbar-slim::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+.scrollbar-slim::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-slim::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 9999px;
+}
+
+.scrollbar-slim::-webkit-scrollbar-thumb:hover {
+  background: var(--muted-foreground);
+}
+
+/* Document content reading typography: clean, optimized font scale */
+.document-content {
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-size: 0.95rem;
+  line-height: 1.65;
+}
+
+.document-content > :first-child {
+  margin-top: 0;
+}
+
+.document-content h1,
+.document-content h2,
+.document-content h3,
+.document-content h4,
+.document-content h5,
+.document-content h6 {
+  color: var(--foreground);
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  line-height: 1.35;
+  margin: 1.6em 0 0.6em;
+}
+
+.document-content h1 {
+  font-size: 1.5rem;
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.document-content h2 {
+  font-size: 1.25rem;
+  padding-bottom: 0.25rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.document-content h3 {
+  font-size: 1.075rem;
+}
+
+.document-content h4,
+.document-content h5,
+.document-content h6 {
+  font-size: 0.95rem;
+}
+
+.document-content p,
+.document-content ul,
+.document-content ol,
+.document-content blockquote,
+.document-content pre,
+.document-content table,
+.document-content figure {
+  margin: 1rem 0;
+}
+
+.document-content ul,
+.document-content ol {
+  padding-left: 1.4rem;
+}
+
+.document-content ul {
+  list-style: disc;
+}
+
+.document-content ol {
+  list-style: decimal;
+}
+
+.document-content li + li {
+  margin-top: 0.25rem;
+}
+
+.document-content a {
+  color: var(--primary);
+  text-decoration: underline;
+  text-decoration-color: var(--border);
+  text-underline-offset: 0.2em;
+  transition: text-decoration-color 0.15s ease;
+}
+
+.document-content a:hover {
+  text-decoration-color: currentColor;
+}
+
+.document-content blockquote {
+  border-left: 2px solid var(--primary);
+  background: var(--muted);
+  color: var(--muted-foreground);
+  padding: 0.6rem 1rem;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+
+.document-content code {
+  border-radius: var(--radius-sm);
+  background: var(--muted);
+  font-family: var(--font-mono), monospace;
+  font-size: 0.85em;
+  padding: 0.15em 0.35em;
+  border: 1px solid var(--border);
+}
+
+.document-content pre {
+  overflow-x: auto;
+  border-radius: var(--radius-md);
+  background: oklch(0.16 0.01 150);
+  color: oklch(0.95 0 0);
+  border: 1px solid var(--border);
+  padding: 0.9rem 1.1rem;
+}
+
+.document-content pre code {
+  background: transparent;
+  padding: 0;
+  border: 0;
+  color: inherit;
+  font-size: 0.85em;
+}
+
+.document-content img {
+  display: block;
+  height: auto;
+  max-width: 100%;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  margin: 1.5rem auto;
+}
+
+.document-content table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  border: 1px solid var(--border);
+  margin: 1.25rem 0;
+}
+
+.document-content th,
+.document-content td {
+  border: 1px solid var(--border);
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+}
+
+.document-content th {
+  background: var(--muted);
+  font-weight: 600;
+  color: var(--foreground);
+}
+
+.document-content hr {
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin: 2rem 0;
+}
+
+.document-content math {
+  font-size: 1.05em;
+}
+
+.document-content math[display="block"] {
+  display: block;
+  margin: 1.25rem 0;
+  padding: 0.5rem 0.75rem;
+  background: var(--muted);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.document-content .katex-error {
+  color: var(--destructive);
+  font-family: var(--font-mono), monospace;
+  font-size: 0.85em;
 }
