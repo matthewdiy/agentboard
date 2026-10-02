@@ -13,7 +13,8 @@ Document metadata lives in Postgres and image bytes live in Netlify Blobs. Local
 - **Folders without a folder API** — `path=/product/research.md` creates `/product` automatically. A tree endpoint returns one directory at a time for filesystem-style browsing, and folders that empty out are pruned.
 - **Search and pagination** — filter documents by title or path with `q`, and page through results with cursors.
 - **Scoped API keys** — `documents:read` and `documents:write` bearer keys, created and deleted from the dashboard.
-- **Restricted access** — Google sign-in limited to an allowlist of email addresses; only asset URLs are public.
+- **Expiring public links** — publish one document at an unguessable `/s/:token` URL with an expiry of up to 90 days, then list, revoke, or watch its view count from the reading view. Only the token's hash is stored, and the URL is shown once.
+- **Restricted access** — Google sign-in limited to an allowlist of email addresses; only asset URLs and unexpired share links are public.
 - **Web UI** — library overview, folder sidebar with search, document reading view, upload, move/rename, replace, delete, and dark mode.
 - **Netlify-native storage** — Netlify Database and Netlify Blobs are provisioned by the platform, so there is no connection string or storage credential to manage.
 

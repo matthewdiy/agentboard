@@ -15,3 +15,12 @@
   [headers.values]
     X-Content-Type-Options = "nosniff"
     X-Robots-Tag = "noindex, nofollow"
+
+# Share links are bearer credentials in the URL path, so keep them out of search
+# results and out of the Referer header of every outbound link a reader clicks.
+[[headers]]
+  for = "/s/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    X-Robots-Tag = "noindex, nofollow"
+    Referrer-Policy = "no-referrer"

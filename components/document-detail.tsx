@@ -3,6 +3,7 @@
 import { Check, Clock, Copy, HardDrive } from "lucide-react";
 
 import { DocumentActions } from "@/components/document-actions";
+import { DocumentShareDialog } from "@/components/document-share-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { DocumentResponse } from "@/lib/documents/service";
@@ -55,6 +56,8 @@ export function DocumentDetail({ document }: { document: DocumentResponse }) {
               </>
             )}
           </Button>
+
+          <DocumentShareDialog documentId={document.id} />
 
           <DocumentActions document={document} />
         </div>

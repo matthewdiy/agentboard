@@ -6,6 +6,7 @@
 export {
   DocumentListInputError,
   DocumentPathConflictError,
+  ShareInputError,
 } from "./errors";
 export {
   getDocument,
@@ -21,15 +22,31 @@ export {
   updateDocument,
 } from "./mutations";
 export type { DocumentChanges } from "./mutations";
+export {
+  buildShareUrl,
+  createDocumentShare,
+  getSharedDocument,
+  getShareByToken,
+  listDocumentShares,
+  recordShareAccess,
+  revokeDocumentShare,
+} from "./share-store";
+export type { ShareLookup } from "./share-store";
+export { normalizeShareExpiry, shareStatus } from "./shares";
+export type { ShareExpiryInput } from "./shares";
 export type {
   DocumentDirectoryEntry,
   DocumentFileEntry,
   DocumentListOptions,
   DocumentListPage,
   DocumentResponse,
+  DocumentShareCreated,
+  DocumentShareSummary,
   DocumentStats,
   DocumentSummary,
   DocumentTreeEntry,
   DocumentTreePage,
   DocumentTreeOptions,
+  SharedDocument,
+  ShareStatus,
 } from "./types";

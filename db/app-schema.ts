@@ -119,6 +119,43 @@ export const documentAssets = pgTable(
   ],
 );
 
+/**
+ * Public share links. A link is a bearer credential, so only the SHA-256 hash of
+ * the token is stored: a leaked database row cannot be replayed as a URL. The
+ * raw token exists once, in the create response, and is never readable again.
+ *
+ * No token prefix or suffix is stored, because a hash cannot reveal one and the
+ * dashboard identifies a link by its creation time, expiry, and status instead.
+ */
+export const documentShares = pgTable(
+  "document_shares",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    nodeId: uuid("node_id")
+      .notNull()
+      .references(() => documentNodes.id, { onDelete: "cascade" }),
+    tokenHash: text("token_hash").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    // Revocation is an explicit event, so there is no updated_at column.
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    lastAccessedAt: timestamp("last_accessed_at", { withTimezone: true }),
+    viewCount: integer("view_count").default(0).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    // The only lookup path for a public request.
+    uniqueIndex("document_shares_token_hash_unique").on(table.tokenHash),
+    index("document_shares_node_created_idx").on(
+      table.nodeId,
+      table.createdAt.desc(),
+    ),
+    check("document_shares_view_count_nonnegative", sql`${table.viewCount} >= 0`),
+  ],
+);
+
 export type DocumentNode = typeof documentNodes.$inferSelect;
 export type DocumentContent = typeof documentContents.$inferSelect;
 export type DocumentAsset = typeof documentAssets.$inferSelect;
+export type DocumentShare = typeof documentShares.$inferSelect;

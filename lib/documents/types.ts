@@ -32,6 +32,39 @@ export type DocumentListPage = {
   nextCursor: string | null;
 };
 
+export type ShareStatus = "active" | "expired" | "revoked";
+
+/**
+ * A share link as the dashboard and API see it. Token material never appears
+ * here: only its hash is stored, and the raw token is returned once on create.
+ */
+export type DocumentShareSummary = {
+  id: string;
+  expiresAt: string;
+  createdAt: string;
+  revokedAt: string | null;
+  lastAccessedAt: string | null;
+  viewCount: number;
+  status: ShareStatus;
+};
+
+export type DocumentShareCreated = {
+  share: DocumentShareSummary;
+  token: string;
+  url: string;
+};
+
+/**
+ * The public representation of a shared document. It carries only what the
+ * public page renders: no source content, path, ids, or asset metadata.
+ */
+export type SharedDocument = {
+  title: string;
+  sourceFormat: "markdown" | "html";
+  sanitizedHtml: string;
+  updatedAt: string;
+};
+
 export type DocumentDirectoryEntry = {
   kind: "directory";
   path: string;

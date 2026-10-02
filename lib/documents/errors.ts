@@ -14,6 +14,14 @@ export class DocumentPathConflictError extends Error {
   }
 }
 
+/** Invalid share-link input, reported to HTTP clients as 422. */
+export class ShareInputError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ShareInputError";
+  }
+}
+
 /**
  * The unique path index is the final arbiter of concurrent writes, so a raw
  * Postgres unique violation on that index is reported as a path conflict.

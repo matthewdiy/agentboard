@@ -20,6 +20,7 @@ function thenable(rows: unknown[]): QueryDouble {
     limit: vi.fn(chain),
     for: vi.fn(chain),
     leftJoin: vi.fn(chain),
+    innerJoin: vi.fn(chain),
     values: vi.fn(chain),
     set: vi.fn(chain),
     onConflictDoUpdate: vi.fn(chain),
