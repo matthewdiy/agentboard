@@ -4,6 +4,7 @@ const dbMock = vi.hoisted(() => ({
   select: vi.fn(),
   insert: vi.fn(),
   update: vi.fn(),
+  delete: vi.fn(),
 }));
 
 const queryMock = vi.hoisted(() => ({
@@ -19,6 +20,7 @@ import type { DocumentShare } from "@/db/schema";
 import { hashShareToken } from "./share-tokens";
 import {
   createDocumentShare,
+  deleteDocumentShare,
   getShareByToken,
   getSharedDocument,
   listDocumentShares,
@@ -36,6 +38,7 @@ function shareRow(overrides: Partial<DocumentShare> = {}): DocumentShare {
   return {
     id: shareId,
     nodeId,
+    name: null,
     tokenHash: hashShareToken(token),
     expiresAt: new Date(now.getTime() + 60 * 60 * 1000),
     revokedAt: null,
@@ -60,6 +63,12 @@ function mockUpdate() {
   const update = queryResult([]);
   dbMock.update.mockReturnValue(update);
   return update;
+}
+
+function mockDelete() {
+  const remove = queryResult([]);
+  dbMock.delete.mockReturnValue(remove);
+  return remove;
 }
 
 describe("getShareByToken", () => {
@@ -113,6 +122,16 @@ describe("getShareByToken", () => {
     expect(result).not.toHaveProperty("nodeId");
   });
 
+  it("keeps a never-expiring link active and usable", async () => {
+    mockSelect([shareRow({ expiresAt: null })]);
+
+    const result = await getShareByToken(token, now);
+
+    expect(result?.kind).toBe("active");
+    expect(result?.share.expiresAt).toBeNull();
+    expect(result).toHaveProperty("nodeId", nodeId);
+  });
+
   it("reports a revoked link", async () => {
     mockSelect([shareRow({ revokedAt: now })]);
 
@@ -130,15 +149,40 @@ describe("listDocumentShares", () => {
 
   it("maps rows to summaries in the link's own ordering", async () => {
     mockSelect([
-      shareRow({ id: shareId, viewCount: 3 }),
+      shareRow({ id: shareId, name: "Client preview", viewCount: 3 }),
       shareRow({ id: "44444444-4444-4444-8444-444444444444", revokedAt: now }),
     ]);
 
     const shares = await listDocumentShares(nodeId, now);
 
     expect(shares).toHaveLength(2);
-    expect(shares[0]).toMatchObject({ id: shareId, viewCount: 3, status: "active" });
+    expect(shares[0]).toMatchObject({
+      id: shareId,
+      name: "Client preview",
+      viewCount: 3,
+      status: "active",
+    });
+    // An unnamed link stays null so the dashboard owns the fallback label.
+    expect(shares[1]?.name).toBeNull();
     expect(shares[1]?.status).toBe("revoked");
+  });
+
+  it("asks the database for live links first, on the caller's clock", async () => {
+    mockSelect([]);
+
+    await listDocumentShares(nodeId, now);
+
+    const [ordering] = callsOf(dbMock.select.mock.results[0]?.value, "orderBy");
+    const [liveness] = ordering ?? [];
+    const rendered = renderSql(liveness);
+
+    // Liveness is the primary sort key, so the capped window can only drop
+    // dead links.
+    expect(rendered.sql).toContain("revoked_at");
+    expect(rendered.sql).toContain("expires_at");
+    // The injected clock is bound as a parameter rather than using the
+    // database's own now(), so ordering agrees with the statuses returned.
+    expect(rendered.params).toContainEqual(now);
   });
 });
 
@@ -155,7 +199,10 @@ describe("createDocumentShare", () => {
   it("returns null for an unknown document", async () => {
     queryMock.getDocumentSummary.mockResolvedValue(null);
 
-    const created = await createDocumentShare(nodeId, now);
+    const created = await createDocumentShare(nodeId, {
+      name: null,
+      expiresAt: now,
+    });
 
     expect(created).toBeNull();
     expect(dbMock.insert).not.toHaveBeenCalled();
@@ -167,16 +214,21 @@ describe("createDocumentShare", () => {
     ]);
     const expiresAt = new Date(now.getTime() + 3600 * 1000);
 
-    const created = await createDocumentShare(nodeId, expiresAt);
+    const created = await createDocumentShare(nodeId, {
+      name: "Client preview",
+      expiresAt,
+    });
 
     expect(created).not.toBeNull();
     const values = callsOf(insert, "values")[0]?.[0] as {
       nodeId: string;
+      name: string | null;
       tokenHash: string;
-      expiresAt: Date;
+      expiresAt: Date | null;
     };
 
     expect(values.nodeId).toBe(nodeId);
+    expect(values.name).toBe("Client preview");
     expect(values.expiresAt).toBe(expiresAt);
     expect(values.tokenHash).toMatch(/^[0-9a-f]{64}$/);
     expect(values.tokenHash).not.toBe(created?.token);
@@ -184,12 +236,31 @@ describe("createDocumentShare", () => {
     expect(created?.url.endsWith(`/s/${created?.token}`)).toBe(true);
   });
 
+  it("stores a never-expiring link without an expiry", async () => {
+    const insert = mockInsert([shareRow({ expiresAt: null })]);
+
+    const created = await createDocumentShare(nodeId, {
+      name: null,
+      expiresAt: null,
+    });
+
+    const values = callsOf(insert, "values")[0]?.[0] as {
+      name: string | null;
+      expiresAt: Date | null;
+    };
+
+    expect(values.expiresAt).toBeNull();
+    expect(values.name).toBeNull();
+    expect(created?.share.expiresAt).toBeNull();
+    expect(created?.share.status).toBe("active");
+  });
+
   it("fails loudly when the insert returns no row", async () => {
     mockInsert([]);
 
-    await expect(createDocumentShare(nodeId, now)).rejects.toThrow(
-      "was not stored",
-    );
+    await expect(
+      createDocumentShare(nodeId, { name: null, expiresAt: now }),
+    ).rejects.toThrow("was not stored");
   });
 });
 
@@ -225,6 +296,52 @@ describe("revokeDocumentShare", () => {
 
     const set = callsOf(update, "set")[0]?.[0] as { revokedAt: Date };
     expect(set.revokedAt).toBeInstanceOf(Date);
+  });
+});
+
+describe("deleteDocumentShare", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("reports a missing or foreign link without deleting anything", async () => {
+    mockSelect([]);
+
+    expect(await deleteDocumentShare(nodeId, shareId, now)).toBe("missing");
+    expect(dbMock.delete).not.toHaveBeenCalled();
+
+    const where = callsOf(dbMock.select.mock.results[0]?.value, "where")[0]?.[0];
+    // Removal is scoped to the document the caller asked about.
+    expect(renderSql(where).params).toEqual([shareId, nodeId]);
+  });
+
+  it("refuses to remove a live link, leaving its record intact", async () => {
+    mockSelect([shareRow()]);
+
+    expect(await deleteDocumentShare(nodeId, shareId, now)).toBe("active");
+    expect(dbMock.delete).not.toHaveBeenCalled();
+  });
+
+  it("refuses a never-expiring link until it is revoked", async () => {
+    mockSelect([shareRow({ expiresAt: null })]);
+
+    expect(await deleteDocumentShare(nodeId, shareId, now)).toBe("active");
+    expect(dbMock.delete).not.toHaveBeenCalled();
+  });
+
+  it("removes a revoked link", async () => {
+    mockSelect([shareRow({ revokedAt: now })]);
+    const remove = mockDelete();
+
+    expect(await deleteDocumentShare(nodeId, shareId, now)).toBe("deleted");
+    expect(renderSql(callsOf(remove, "where")[0]?.[0]).params).toEqual([shareId]);
+  });
+
+  it("removes an expired link", async () => {
+    mockSelect([shareRow({ expiresAt: new Date(now.getTime() - 1000) })]);
+    mockDelete();
+
+    expect(await deleteDocumentShare(nodeId, shareId, now)).toBe("deleted");
   });
 });
 

@@ -25,6 +25,7 @@ export type { DocumentChanges } from "./mutations";
 export {
   buildShareUrl,
   createDocumentShare,
+  deleteDocumentShare,
   getSharedDocument,
   getShareByToken,
   listDocumentShares,
@@ -32,7 +33,12 @@ export {
   revokeDocumentShare,
 } from "./share-store";
 export type { ShareLookup } from "./share-store";
-export { normalizeShareExpiry, shareStatus } from "./shares";
+export {
+  maxShareNameLength,
+  normalizeShareExpiry,
+  normalizeShareName,
+  shareStatus,
+} from "./shares";
 export type { ShareExpiryInput } from "./shares";
 export type {
   DocumentDirectoryEntry,

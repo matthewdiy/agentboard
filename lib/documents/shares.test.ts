@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import { ShareInputError } from "./errors";
 import {
+  maxShareNameLength,
   maxShareTtlSeconds,
   minShareTtlSeconds,
   normalizeShareExpiry,
+  normalizeShareName,
   shareStatus,
   toShareSummary,
 } from "./shares";
@@ -16,6 +18,7 @@ function shareRow(overrides: Partial<DocumentShare> = {}): DocumentShare {
   return {
     id: "11111111-1111-4111-8111-111111111111",
     nodeId: "22222222-2222-4222-8222-222222222222",
+    name: null,
     tokenHash: "hash",
     expiresAt: new Date(now.getTime() + 60 * 60 * 1000),
     revokedAt: null,
@@ -30,7 +33,7 @@ describe("normalizeShareExpiry", () => {
   it("converts a relative expiry into an absolute instant", () => {
     const expiresAt = normalizeShareExpiry({ expiresInSeconds: 3600 }, now);
 
-    expect(expiresAt.toISOString()).toBe("2026-09-01T13:00:00.000Z");
+    expect(expiresAt?.toISOString()).toBe("2026-09-01T13:00:00.000Z");
   });
 
   it("accepts an absolute ISO expiry", () => {
@@ -39,7 +42,7 @@ describe("normalizeShareExpiry", () => {
       now,
     );
 
-    expect(expiresAt.toISOString()).toBe("2026-09-02T12:00:00.000Z");
+    expect(expiresAt?.toISOString()).toBe("2026-09-02T12:00:00.000Z");
   });
 
   it("allows an expiry exactly at the cap", () => {
@@ -48,20 +51,50 @@ describe("normalizeShareExpiry", () => {
       now,
     );
 
-    expect(expiresAt.getTime() - now.getTime()).toBe(maxShareTtlSeconds * 1000);
+    expect(expiresAt?.getTime()).toBe(now.getTime() + maxShareTtlSeconds * 1000);
   });
 
-  it("requires exactly one of the two expiry forms", () => {
+  it("returns no expiry for a never-expiring link", () => {
+    expect(normalizeShareExpiry({ neverExpires: true }, now)).toBeNull();
+  });
+
+  it("requires exactly one expiry form", () => {
     expect(() => normalizeShareExpiry({}, now)).toThrow(ShareInputError);
     expect(() => normalizeShareExpiry({}, now)).toThrow(
-      "A share link expiry is required.",
+      "A share link expiry or neverExpires flag is required.",
     );
+
+    const message =
+      "Provide only one of expiresInSeconds, expiresAt, or neverExpires.";
     expect(() =>
       normalizeShareExpiry(
         { expiresInSeconds: 3600, expiresAt: "2026-09-02T12:00:00.000Z" },
         now,
       ),
-    ).toThrow("Provide either expiresInSeconds or expiresAt, not both.");
+    ).toThrow(message);
+    expect(() =>
+      normalizeShareExpiry({ expiresInSeconds: 3600, neverExpires: true }, now),
+    ).toThrow(message);
+    expect(() =>
+      normalizeShareExpiry(
+        { expiresAt: "2026-09-02T12:00:00.000Z", neverExpires: true },
+        now,
+      ),
+    ).toThrow(message);
+  });
+
+  it("rejects a neverExpires flag that is not true", () => {
+    for (const neverExpires of [false, "true", 1, null]) {
+      expect(() => normalizeShareExpiry({ neverExpires }, now)).toThrow(
+        "The neverExpires flag must be true when provided.",
+      );
+    }
+  });
+
+  it("never expires from a null expiresAt, which stays an invalid timestamp", () => {
+    expect(() => normalizeShareExpiry({ expiresAt: null }, now)).toThrow(
+      "The expiry must be an ISO 8601 timestamp.",
+    );
   });
 
   it("rejects seconds outside the allowed range", () => {
@@ -105,6 +138,40 @@ describe("normalizeShareExpiry", () => {
   });
 });
 
+describe("normalizeShareName", () => {
+  it("treats an absent, null, or blank name as unnamed", () => {
+    expect(normalizeShareName(undefined)).toBeNull();
+    expect(normalizeShareName(null)).toBeNull();
+    expect(normalizeShareName("")).toBeNull();
+    expect(normalizeShareName("   ")).toBeNull();
+  });
+
+  it("trims a supplied name", () => {
+    expect(normalizeShareName("  Client preview  ")).toBe("Client preview");
+  });
+
+  it("accepts a name at the length limit", () => {
+    const name = "a".repeat(maxShareNameLength);
+
+    expect(normalizeShareName(name)).toBe(name);
+  });
+
+  it("rejects a name that is too long instead of truncating it", () => {
+    expect(() => normalizeShareName("a".repeat(maxShareNameLength + 1))).toThrow(
+      `The share link name cannot be longer than ${maxShareNameLength} characters.`,
+    );
+  });
+
+  it("rejects a non-string name", () => {
+    for (const value of [42, true, {}, ["name"]]) {
+      expect(() => normalizeShareName(value)).toThrow(ShareInputError);
+      expect(() => normalizeShareName(value)).toThrow(
+        "The share link name must be a string.",
+      );
+    }
+  });
+});
+
 describe("shareStatus", () => {
   it("reports an unrevoked future link as active", () => {
     expect(shareStatus(shareRow(), now)).toBe("active");
@@ -117,7 +184,11 @@ describe("shareStatus", () => {
     ).toBe("expired");
   });
 
-  it("reports revocation ahead of expiry", () => {
+  it("keeps a link with no expiry active", () => {
+    expect(shareStatus(shareRow({ expiresAt: null }), now)).toBe("active");
+  });
+
+  it("reports revocation ahead of expiry, including without an expiry", () => {
     expect(
       shareStatus(
         shareRow({ revokedAt: new Date(now.getTime() - 1000) }),
@@ -133,6 +204,9 @@ describe("shareStatus", () => {
         now,
       ),
     ).toBe("revoked");
+    expect(
+      shareStatus(shareRow({ revokedAt: now, expiresAt: null }), now),
+    ).toBe("revoked");
   });
 });
 
@@ -142,6 +216,7 @@ describe("toShareSummary", () => {
 
     expect(summary).toEqual({
       id: "11111111-1111-4111-8111-111111111111",
+      name: null,
       expiresAt: "2026-09-01T13:00:00.000Z",
       createdAt: "2026-09-01T12:00:00.000Z",
       revokedAt: null,
@@ -149,6 +224,19 @@ describe("toShareSummary", () => {
       viewCount: 0,
       status: "active",
     });
+  });
+
+  it("carries the link name", () => {
+    const summary = toShareSummary(shareRow({ name: "Client preview" }), now);
+
+    expect(summary.name).toBe("Client preview");
+  });
+
+  it("reports a never-expiring link with a null expiry", () => {
+    const summary = toShareSummary(shareRow({ expiresAt: null }), now);
+
+    expect(summary.expiresAt).toBeNull();
+    expect(summary.status).toBe("active");
   });
 
   it("keeps access and revocation timestamps when present", () => {

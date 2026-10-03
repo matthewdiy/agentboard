@@ -39,19 +39,27 @@ import type {
   DocumentShareSummary,
   ShareStatus,
 } from "@/lib/documents/service";
+// The limit comes from the pure module, not the service barrel: the barrel
+// pulls in the database client, which must stay out of this component's bundle.
+import { maxShareNameLength } from "@/lib/documents/shares";
 import { formatDate, formatRelative } from "@/lib/format";
 import { useAsyncAction } from "@/lib/hooks/use-async-action";
 import { useCopyToClipboard } from "@/lib/hooks/use-copy-to-clipboard";
 import { cn } from "cn";
 
-const presets = [
-  { label: "1 hour", seconds: 3600 },
-  { label: "24 hours", seconds: 86400 },
-  { label: "7 days", seconds: 604800 },
-  { label: "30 days", seconds: 2592000 },
+const ttlPresets = [
+  { label: "1 hour", value: "3600" },
+  { label: "24 hours", value: "86400" },
+  { label: "7 days", value: "604800" },
+  { label: "30 days", value: "2592000" },
 ];
 
+const customPreset = "custom";
+const neverPreset = "never";
+
 const maxTtlDays = 90;
+
+const untitledLink = "Untitled link";
 
 const statusStyles: Record<ShareStatus, string> = {
   active:
@@ -63,6 +71,14 @@ const statusStyles: Record<ShareStatus, string> = {
 function statusLabel(status: ShareStatus) {
   if (status === "active") return "Active";
   return status === "expired" ? "Expired" : "Revoked";
+}
+
+/** A null expiry has no deadline, so it is labelled rather than dated. */
+function expiryLabel(share: DocumentShareSummary) {
+  if (!share.expiresAt) return "Never expires";
+  return share.status === "expired"
+    ? `Expired ${formatDate(share.expiresAt)}`
+    : `Expires ${formatDate(share.expiresAt)}`;
 }
 
 /** Local datetime string for a `datetime-local` input, offset by days. */
@@ -81,15 +97,17 @@ export function DocumentShareDialog({ documentId }: { documentId: string }) {
   const [shares, setShares] = useState<DocumentShareSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [preset, setPreset] = useState(String(presets[0]?.seconds ?? 3600));
+  const [name, setName] = useState("");
+  const [preset, setPreset] = useState(ttlPresets[0]?.value ?? "3600");
   const [customExpiry, setCustomExpiry] = useState(() => localDateTimeValue(7));
   const [created, setCreated] = useState<DocumentShareCreated | null>(null);
-  const [revokeTarget, setRevokeTarget] = useState<DocumentShareSummary | null>(
-    null,
-  );
+  const [confirmTarget, setConfirmTarget] = useState<{
+    share: DocumentShareSummary;
+    action: "revoke" | "delete";
+  } | null>(null);
   const { copiedKey, copy } = useCopyToClipboard();
   const create = useAsyncAction();
-  const revoke = useAsyncAction();
+  const mutate = useAsyncAction();
 
   const loadShares = useCallback(async () => {
     setLoading(true);
@@ -112,10 +130,19 @@ export function DocumentShareDialog({ documentId }: { documentId: string }) {
 
   async function submitCreate() {
     await create.run(async () => {
-      const body =
-        preset === "custom"
-          ? { expiresAt: new Date(customExpiry).toISOString() }
-          : { expiresInSeconds: Number(preset) };
+      // A blank name is simply omitted, so the server stores no name at all.
+      const body: Record<string, unknown> = {};
+
+      const trimmedName = name.trim();
+      if (trimmedName) body.name = trimmedName;
+
+      if (preset === neverPreset) {
+        body.neverExpires = true;
+      } else if (preset === customPreset) {
+        body.expiresAt = new Date(customExpiry).toISOString();
+      } else {
+        body.expiresInSeconds = Number(preset);
+      }
 
       const payload = await apiRequest<DocumentShareCreated>(
         `/api/v1/documents/${documentId}/shares`,
@@ -132,26 +159,51 @@ export function DocumentShareDialog({ documentId }: { documentId: string }) {
     });
   }
 
-  async function confirmRevoke() {
-    if (!revokeTarget) return;
-    const target = revokeTarget;
+  /**
+   * One confirm step for both actions. Revoking keeps the record and flips the
+   * row; removing deletes a link that had already stopped working, so it leaves
+   * the list entirely.
+   */
+  async function confirmShareAction() {
+    if (!confirmTarget) return;
+    const { share: target, action: kind } = confirmTarget;
+    const removing = kind === "delete";
 
-    const revoked = await revoke.run(async () => {
+    const done = await mutate.run(async () => {
       await apiRequest(
-        `/api/v1/documents/${documentId}/shares/${target.id}`,
+        `/api/v1/documents/${documentId}/shares/${target.id}${removing ? "?purge=true" : ""}`,
         { method: "DELETE" },
-        "Unable to revoke the share link.",
+        removing
+          ? "Unable to remove the share link."
+          : "Unable to revoke the share link.",
       );
+
       setShares((current) =>
-        current.map((share) =>
-          share.id === target.id
-            ? { ...share, status: "revoked", revokedAt: new Date().toISOString() }
-            : share,
-        ),
+        removing
+          ? current.filter((share) => share.id !== target.id)
+          : current.map((share) =>
+              share.id === target.id
+                ? {
+                    ...share,
+                    status: "revoked",
+                    revokedAt: new Date().toISOString(),
+                  }
+                : share,
+            ),
       );
     });
 
-    if (revoked) setRevokeTarget(null);
+    if (done) setConfirmTarget(null);
+  }
+
+  /** Shared styling for the preset chips, selected or not. */
+  function presetClass(value: string) {
+    return cn(
+      "rounded border px-2 py-1 text-[11px] transition-colors",
+      preset === value
+        ? "border-primary/40 bg-primary/10 text-foreground"
+        : "border-border/80 bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground",
+    );
   }
 
   return (
@@ -166,8 +218,9 @@ export function DocumentShareDialog({ documentId }: { documentId: string }) {
             void loadShares();
           } else {
             setCreated(null);
+            setName("");
             create.setError(null);
-            revoke.setError(null);
+            mutate.setError(null);
           }
         }}
       >
@@ -183,7 +236,9 @@ export function DocumentShareDialog({ documentId }: { documentId: string }) {
           </Button>
         </DialogTrigger>
 
-        <DialogContent className="rounded-xl border-border/80 p-5 shadow-md sm:max-w-lg">
+        {/* The dialog scrolls internally: a document can accumulate many links,
+            and a long token URL must never widen the box. */}
+        <DialogContent className="max-h-[min(85svh,44rem)] overflow-y-auto rounded-xl border-border/80 p-5 shadow-md sm:max-w-lg">
           <DialogHeader className="space-y-1 pb-1">
             <div className="flex items-center gap-2">
               <div className="flex size-7 items-center justify-center rounded-md border border-border/70 bg-muted text-foreground">
@@ -194,19 +249,27 @@ export function DocumentShareDialog({ documentId }: { documentId: string }) {
               </DialogTitle>
             </div>
             <DialogDescription className="text-xs text-muted-foreground">
-              Anyone with the link can read this document until it expires.
-              Images stay publicly readable at their own URLs.
+              Anyone with the link can read this document until it expires or
+              you revoke it. Images stay publicly readable at their own URLs.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 pt-1">
+          <div className="min-w-0 space-y-4 pt-1">
             {created ? (
-              <div className="space-y-2 rounded-md border border-emerald-600/30 bg-emerald-600/5 p-2.5">
+              <div className="min-w-0 space-y-2 rounded-md border border-emerald-600/30 bg-emerald-600/5 p-2.5">
                 <p className="text-[11px] font-medium text-emerald-700 dark:text-emerald-400">
                   Link created — copy it now, it is not shown again.
                 </p>
-                <div className="flex items-center gap-2">
-                  <code className="min-w-0 flex-1 truncate rounded border border-border/80 bg-background px-2 py-1 font-mono text-[11px] select-all">
+                <p className="truncate text-xs font-semibold text-foreground">
+                  {created.share.name ?? untitledLink}
+                </p>
+                <div className="flex min-w-0 items-start gap-2">
+                  {/* break-all rather than truncate: the URL is the deliverable,
+                      so it wraps instead of being clipped or overflowing. */}
+                  <code
+                    title={created.url}
+                    className="min-w-0 flex-1 rounded border border-border/80 bg-background px-2 py-1 font-mono text-[11px] break-all whitespace-pre-wrap select-all"
+                  >
                     {created.url}
                   </code>
                   <Button
@@ -230,7 +293,9 @@ export function DocumentShareDialog({ documentId }: { documentId: string }) {
                   </Button>
                 </div>
                 <p className="text-[11px] text-muted-foreground">
-                  Expires {formatDate(created.share.expiresAt)}
+                  {created.share.expiresAt
+                    ? `Expires ${formatDate(created.share.expiresAt)}`
+                    : "Never expires — revoke it to end access."}
                 </p>
               </div>
             ) : (
@@ -242,37 +307,61 @@ export function DocumentShareDialog({ documentId }: { documentId: string }) {
                 }}
               >
                 <div className="space-y-1.5">
+                  <Label htmlFor="share-link-name" className="text-xs font-medium">
+                    Link name
+                  </Label>
+                  <Input
+                    id="share-link-name"
+                    value={name}
+                    onChange={(event) => setName(event.target.value)}
+                    placeholder={untitledLink}
+                    maxLength={maxShareNameLength}
+                    autoComplete="off"
+                    className="h-8 text-xs"
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    Optional. Left blank, the link is listed as&nbsp;
+                    <span className="text-foreground">{untitledLink}</span>.
+                  </p>
+                </div>
+
+                <div className="space-y-1.5">
                   <Label className="text-xs font-medium">Link expires in</Label>
                   <div className="flex flex-wrap gap-1.5">
-                    {presets.map((option) => (
+                    {ttlPresets.map((option) => (
                       <button
-                        key={option.label}
+                        key={option.value}
                         type="button"
-                        onClick={() => setPreset(String(option.seconds))}
-                        className={cn(
-                          "rounded border px-2 py-1 text-[11px] transition-colors",
-                          preset === String(option.seconds)
-                            ? "border-primary/40 bg-primary/10 text-foreground"
-                            : "border-border/80 bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground",
-                        )}
+                        onClick={() => setPreset(option.value)}
+                        className={presetClass(option.value)}
                       >
                         {option.label}
                       </button>
                     ))}
                     <button
                       type="button"
-                      onClick={() => setPreset("custom")}
-                      className={cn(
-                        "rounded border px-2 py-1 text-[11px] transition-colors",
-                        preset === "custom"
-                          ? "border-primary/40 bg-primary/10 text-foreground"
-                          : "border-border/80 bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground",
-                      )}
+                      onClick={() => setPreset(neverPreset)}
+                      className={presetClass(neverPreset)}
+                    >
+                      Never
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPreset(customPreset)}
+                      className={presetClass(customPreset)}
                     >
                       Custom
                     </button>
                   </div>
-                  {preset === "custom" && (
+
+                  {preset === neverPreset && (
+                    <p className="mt-1.5 text-[11px] text-amber-600 dark:text-amber-400">
+                      This link never expires. Anyone who has it can read the
+                      document until you revoke it.
+                    </p>
+                  )}
+
+                  {preset === customPreset && (
                     <Input
                       type="datetime-local"
                       value={customExpiry}
@@ -349,23 +438,23 @@ export function DocumentShareDialog({ documentId }: { documentId: string }) {
                     >
                       <div className="min-w-0 space-y-1">
                         <div className="flex items-center gap-2">
+                          <span className="truncate text-xs font-semibold text-foreground">
+                            {share.name ?? untitledLink}
+                          </span>
                           <span
                             className={cn(
-                              "inline-flex items-center rounded-full border px-1.5 py-0.2 text-[10px] font-medium",
+                              "inline-flex shrink-0 items-center rounded-full border px-1.5 py-0.2 text-[10px] font-medium",
                               statusStyles[share.status],
                             )}
                           >
                             {statusLabel(share.status)}
                           </span>
-                          <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
-                            <Clock className="size-3 text-muted-foreground/70" />
-                            Created {formatRelative(share.createdAt)}
-                          </span>
                         </div>
                         <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] text-muted-foreground">
-                          <span>
-                            {share.status === "expired" ? "Expired" : "Expires"}{" "}
-                            {formatDate(share.expiresAt)}
+                          <span>{expiryLabel(share)}</span>
+                          <span className="flex items-center gap-1">
+                            <Clock className="size-3 text-muted-foreground/70" />
+                            Created {formatRelative(share.createdAt)}
                           </span>
                           <span className="flex items-center gap-1">
                             <Eye className="size-3 text-muted-foreground/70" />
@@ -375,20 +464,27 @@ export function DocumentShareDialog({ documentId }: { documentId: string }) {
                         </div>
                       </div>
 
-                      {share.status === "active" && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            revoke.setError(null);
-                            setRevokeTarget(share);
-                          }}
-                          className="h-7 shrink-0 px-2 text-xs text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-                        >
-                          <Trash2 className="mr-1 size-3" />
-                          Revoke
-                        </Button>
-                      )}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          mutate.setError(null);
+                          setConfirmTarget({
+                            share,
+                            action:
+                              share.status === "active" ? "revoke" : "delete",
+                          });
+                        }}
+                        className="h-7 shrink-0 px-2 text-xs text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                        title={
+                          share.status === "active"
+                            ? "Stop this link from working"
+                            : "Delete this dead link's record"
+                        }
+                      >
+                        <Trash2 className="mr-1 size-3" />
+                        {share.status === "active" ? "Revoke" : "Remove"}
+                      </Button>
                     </div>
                   ))}
                 </div>
@@ -403,10 +499,10 @@ export function DocumentShareDialog({ documentId }: { documentId: string }) {
               </Alert>
             )}
 
-            {revoke.error && (
+            {mutate.error && (
               <Alert variant="destructive">
                 <AlertDescription className="text-xs">
-                  {revoke.error}
+                  {mutate.error}
                 </AlertDescription>
               </Alert>
             )}
@@ -415,16 +511,26 @@ export function DocumentShareDialog({ documentId }: { documentId: string }) {
       </Dialog>
 
       <ConfirmDialog
-        open={revokeTarget !== null}
+        open={confirmTarget !== null}
         onOpenChange={(next) => {
-          if (!next) setRevokeTarget(null);
+          if (!next) setConfirmTarget(null);
         }}
-        title="Revoke share link"
-        description="The link stops working immediately for everyone who has it. This cannot be undone."
-        confirmLabel="Revoke link"
-        pendingLabel="Revoking…"
-        pending={revoke.pending}
-        onConfirm={() => void confirmRevoke()}
+        title={
+          confirmTarget?.action === "delete"
+            ? "Remove share link"
+            : "Revoke share link"
+        }
+        description={
+          confirmTarget?.action === "delete"
+            ? "This link already stopped working. Removing it deletes the record, its name, and its view count permanently."
+            : "The link stops working immediately for everyone who has it. It stays in this list afterwards."
+        }
+        confirmLabel={
+          confirmTarget?.action === "delete" ? "Remove link" : "Revoke link"
+        }
+        pendingLabel={confirmTarget?.action === "delete" ? "Removing…" : "Revoking…"}
+        pending={mutate.pending}
+        onConfirm={() => void confirmShareAction()}
       />
     </>
   );

@@ -13,7 +13,7 @@ import {
   hashShareToken,
   looksLikeShareToken,
 } from "./share-tokens";
-import { toShareSummary } from "./shares";
+import { toShareSummary, shareStatus } from "./shares";
 import type {
   DocumentShareCreated,
   DocumentShareSummary,
@@ -46,7 +46,18 @@ export async function listDocumentShares(
     .select()
     .from(documentShares)
     .where(eq(documentShares.nodeId, nodeId))
-    .orderBy(desc(documentShares.createdAt), desc(documentShares.id))
+    .orderBy(
+      // Live links come first, so the capped window can only ever drop dead
+      // ones: a permanent link must never be pushed out of the list by newer
+      // expired links. Ordering has to happen in SQL because the limit is
+      // applied before any row reaches JavaScript, and the injected clock
+      // keeps this ordering on the same clock as the status computed below.
+      desc(
+        sql`(${documentShares.revokedAt} is null and (${documentShares.expiresAt} is null or ${documentShares.expiresAt} > ${now}))`,
+      ),
+      desc(documentShares.createdAt),
+      desc(documentShares.id),
+    )
     .limit(maxListedShares);
 
   return rows.map((row) => toShareSummary(row, now));
@@ -55,10 +66,12 @@ export async function listDocumentShares(
 /**
  * Returns the raw token exactly once. Nothing else in the application can read
  * it again, because the row only holds its hash.
+ *
+ * A null `expiresAt` creates a link that never expires; only revocation ends it.
  */
 export async function createDocumentShare(
   nodeId: string,
-  expiresAt: Date,
+  { name, expiresAt }: { name: string | null; expiresAt: Date | null },
 ): Promise<DocumentShareCreated | null> {
   // Checking the node first reports an unknown document as 404 rather than
   // surfacing the foreign key violation.
@@ -68,7 +81,7 @@ export async function createDocumentShare(
   const token = generateShareToken();
   const [row] = await db
     .insert(documentShares)
-    .values({ nodeId, tokenHash: hashShareToken(token), expiresAt })
+    .values({ nodeId, name, tokenHash: hashShareToken(token), expiresAt })
     .returning();
 
   if (!row) throw new Error(`Share link for document ${nodeId} was not stored.`);
@@ -99,6 +112,37 @@ export async function revokeDocumentShare(
     .where(eq(documentShares.id, shareId));
 
   return "revoked";
+}
+
+/**
+ * Removes a link that no longer grants access, which is the only reason to
+ * delete a row at all: revocation keeps the audit trail, and a purged link is
+ * indistinguishable from one that never existed.
+ *
+ * A live link is refused rather than quietly revoked, so losing the record of
+ * a link that was public is always a deliberate two-step.
+ */
+export async function deleteDocumentShare(
+  nodeId: string,
+  shareId: string,
+  now = new Date(),
+): Promise<"deleted" | "active" | "missing"> {
+  const [existing] = await db
+    .select()
+    .from(documentShares)
+    .where(
+      and(eq(documentShares.id, shareId), eq(documentShares.nodeId, nodeId)),
+    )
+    .limit(1);
+
+  if (!existing) return "missing";
+  // Revocation is irreversible and expiry only moves forward, so a link that
+  // reads as dead here cannot become live again before the delete lands.
+  if (shareStatus(existing, now) === "active") return "active";
+
+  await db.delete(documentShares).where(eq(documentShares.id, shareId));
+
+  return "deleted";
 }
 
 export async function getShareByToken(

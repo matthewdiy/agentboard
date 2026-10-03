@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   listDocumentShares: vi.fn(),
   createDocumentShare: vi.fn(),
   normalizeShareExpiry: vi.fn(),
+  normalizeShareName: vi.fn(),
 }));
 
 vi.mock("@/lib/request-auth", () => ({
@@ -23,6 +24,7 @@ vi.mock("@/lib/documents/service", () => ({
   listDocumentShares: mocks.listDocumentShares,
   createDocumentShare: mocks.createDocumentShare,
   normalizeShareExpiry: mocks.normalizeShareExpiry,
+  normalizeShareName: mocks.normalizeShareName,
 }));
 
 import { GET, POST } from "./route";
@@ -47,6 +49,7 @@ describe("document shares route", () => {
     mocks.requireDocumentAccess.mockResolvedValue({ type: "dashboard" });
     mocks.requestAuthErrorResponse.mockReturnValue(null);
     mocks.normalizeShareExpiry.mockReturnValue(expiresAt);
+    mocks.normalizeShareName.mockReturnValue(null);
     mocks.getDocumentSummary.mockResolvedValue({ id: "document-id" });
   });
 
@@ -102,20 +105,45 @@ describe("document shares route", () => {
       token: "token-value",
       url: "https://agentboard.example/s/token-value",
     };
+    mocks.normalizeShareName.mockReturnValue("Client preview");
     mocks.createDocumentShare.mockResolvedValue(created);
 
-    const response = await post({ expiresInSeconds: 3600 });
+    const response = await post({
+      name: "Client preview",
+      expiresInSeconds: 3600,
+    });
 
     expect(mocks.requireDocumentAccess).toHaveBeenCalledWith(
       expect.anything(),
       "documents:write",
     );
-    expect(mocks.createDocumentShare).toHaveBeenCalledWith(
-      "document-id",
+    expect(mocks.normalizeShareName).toHaveBeenCalledWith("Client preview");
+    expect(mocks.createDocumentShare).toHaveBeenCalledWith("document-id", {
+      name: "Client preview",
       expiresAt,
-    );
+    });
     expect(response.status).toBe(201);
     await expect(response.json()).resolves.toEqual(created);
+  });
+
+  it("creates a never-expiring link", async () => {
+    mocks.normalizeShareExpiry.mockReturnValue(null);
+    mocks.createDocumentShare.mockResolvedValue({
+      share: { id: "share-1", name: null, expiresAt: null, status: "active" },
+      token: "token-value",
+      url: "https://agentboard.example/s/token-value",
+    });
+
+    const response = await post({ neverExpires: true });
+
+    expect(mocks.normalizeShareExpiry).toHaveBeenCalledWith(
+      expect.objectContaining({ neverExpires: true }),
+    );
+    expect(mocks.createDocumentShare).toHaveBeenCalledWith("document-id", {
+      name: null,
+      expiresAt: null,
+    });
+    expect(response.status).toBe(201);
   });
 
   it("returns 404 when the document is gone", async () => {
@@ -128,14 +156,28 @@ describe("document shares route", () => {
 
   it("returns 422 for invalid expiry input", async () => {
     mocks.normalizeShareExpiry.mockImplementation(() => {
-      throw new ShareInputError("A share link expiry is required.");
+      throw new ShareInputError("A share link expiry or neverExpires flag is required.");
     });
 
     const response = await post({});
 
     expect(response.status).toBe(422);
     await expect(response.json()).resolves.toEqual({
-      error: "A share link expiry is required.",
+      error: "A share link expiry or neverExpires flag is required.",
+    });
+    expect(mocks.createDocumentShare).not.toHaveBeenCalled();
+  });
+
+  it("returns 422 for an invalid name", async () => {
+    mocks.normalizeShareName.mockImplementation(() => {
+      throw new ShareInputError("The share link name must be a string.");
+    });
+
+    const response = await post({ name: 42, expiresInSeconds: 3600 });
+
+    expect(response.status).toBe(422);
+    await expect(response.json()).resolves.toEqual({
+      error: "The share link name must be a string.",
     });
     expect(mocks.createDocumentShare).not.toHaveBeenCalled();
   });
@@ -146,7 +188,7 @@ describe("document shares route", () => {
 
     expect(response.status).toBe(422);
     await expect(response.json()).resolves.toEqual({
-      error: "A share link expiry is required.",
+      error: "A share link expiry or neverExpires flag is required.",
     });
     expect(mocks.normalizeShareExpiry).not.toHaveBeenCalled();
   });

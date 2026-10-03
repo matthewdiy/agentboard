@@ -15,6 +15,13 @@
       "when": 1790950396141,
       "tag": "0001_absurd_deadpool",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790953152171,
+      "tag": "0002_dark_power_man",
+      "breakpoints": true
     }
   ]
 }

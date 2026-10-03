@@ -1,5 +1,6 @@
 import { CalendarClock, FileQuestion, Link2Off } from "lucide-react";
 
+import { ThemeToggle } from "@/components/theme-toggle";
 import { formatDate } from "@/lib/format";
 
 export type ShareUnavailableReason = "missing" | "expired" | "revoked";
@@ -34,12 +35,17 @@ export function ShareUnavailable({
   expiresAt,
 }: {
   reason: ShareUnavailableReason;
-  expiresAt?: string;
+  /** Only ever set for the expired reason; a revoked link kept no deadline. */
+  expiresAt?: string | null;
 }) {
   const { icon: Icon, title, body } = copy[reason];
 
   return (
-    <main className="flex min-h-svh items-center justify-center bg-background px-4">
+    <main className="relative flex min-h-svh items-center justify-center bg-background px-4">
+      <div className="absolute top-4 right-4">
+        <ThemeToggle />
+      </div>
+
       <div className="w-full max-w-sm rounded-xl border border-border/80 bg-card p-6 text-center shadow-sm">
         <div className="mx-auto mb-3 flex size-10 items-center justify-center rounded-lg border border-border/80 bg-muted text-muted-foreground">
           <Icon className="size-5" />

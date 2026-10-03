@@ -125,7 +125,11 @@ export const documentAssets = pgTable(
  * raw token exists once, in the create response, and is never readable again.
  *
  * No token prefix or suffix is stored, because a hash cannot reveal one and the
- * dashboard identifies a link by its creation time, expiry, and status instead.
+ * dashboard identifies a link by its name and status instead.
+ *
+ * `expires_at IS NULL` means the link never expires, so revocation is the only
+ * way to end it. `name` is an owner-facing label: it is never rendered on the
+ * public page, and it is never used to look a link up.
  */
 export const documentShares = pgTable(
   "document_shares",
@@ -135,7 +139,8 @@ export const documentShares = pgTable(
       .notNull()
       .references(() => documentNodes.id, { onDelete: "cascade" }),
     tokenHash: text("token_hash").notNull(),
-    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    name: text("name"),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
     // Revocation is an explicit event, so there is no updated_at column.
     revokedAt: timestamp("revoked_at", { withTimezone: true }),
     lastAccessedAt: timestamp("last_accessed_at", { withTimezone: true }),

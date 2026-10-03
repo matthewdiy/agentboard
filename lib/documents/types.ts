@@ -37,10 +37,14 @@ export type ShareStatus = "active" | "expired" | "revoked";
 /**
  * A share link as the dashboard and API see it. Token material never appears
  * here: only its hash is stored, and the raw token is returned once on create.
+ *
+ * `name` is an owner-facing label and stays out of the public page.
+ * A null `expiresAt` means the link never expires.
  */
 export type DocumentShareSummary = {
   id: string;
-  expiresAt: string;
+  name: string | null;
+  expiresAt: string | null;
   createdAt: string;
   revokedAt: string | null;
   lastAccessedAt: string | null;

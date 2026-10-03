@@ -6,6 +6,7 @@ import {
   getDocumentSummary,
   listDocumentShares,
   normalizeShareExpiry,
+  normalizeShareName,
 } from "@/lib/documents/service";
 import {
   requestAuthErrorResponse,
@@ -34,13 +35,33 @@ export async function GET(request: Request, context: RouteContext) {
   }
 }
 
-function readExpiryInput(body: unknown): ShareExpiryInput {
+type ShareRequestBody = ShareExpiryInput & { name?: unknown };
+
+/**
+ * The name is optional and the expiry is required, so a body that is not an
+ * object is rejected here rather than producing a misleading expiry error.
+ */
+function readShareInput(body: unknown): {
+  name: string | null;
+  expiresAt: Date | null;
+} {
   if (typeof body !== "object" || body === null) {
-    throw new ShareInputError("A share link expiry is required.");
+    throw new ShareInputError(
+      "A share link expiry or neverExpires flag is required.",
+    );
   }
 
-  const { expiresInSeconds, expiresAt } = body as ShareExpiryInput;
-  return { expiresInSeconds, expiresAt };
+  const { name, expiresInSeconds, expiresAt, neverExpires } =
+    body as ShareRequestBody;
+
+  return {
+    name: normalizeShareName(name),
+    expiresAt: normalizeShareExpiry({
+      expiresInSeconds,
+      expiresAt,
+      neverExpires,
+    }),
+  };
 }
 
 export async function POST(request: Request, context: RouteContext) {
@@ -55,8 +76,7 @@ export async function POST(request: Request, context: RouteContext) {
       return jsonError("The request body must be valid JSON.", 422);
     }
 
-    const expiresAt = normalizeShareExpiry(readExpiryInput(body));
-    const created = await createDocumentShare(id, expiresAt);
+    const created = await createDocumentShare(id, readShareInput(body));
     if (!created) return jsonError("Document not found.", 404);
 
     // This is the only response that ever carries the raw token.

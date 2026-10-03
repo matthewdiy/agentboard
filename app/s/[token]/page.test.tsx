@@ -31,15 +31,20 @@ const document = {
   updatedAt: "2026-09-01T12:00:00.000Z",
 };
 
-function share(status: "active" | "expired" | "revoked") {
+function share(
+  status: "active" | "expired" | "revoked",
+  overrides: { name?: string | null; expiresAt?: string | null } = {},
+) {
   return {
     id: "share-1",
+    name: null,
     expiresAt: "2026-09-02T12:00:00.000Z",
     createdAt: "2026-09-01T12:00:00.000Z",
     revokedAt: status === "revoked" ? "2026-09-01T13:00:00.000Z" : null,
     lastAccessedAt: null,
     viewCount: 0,
     status,
+    ...overrides,
   };
 }
 
@@ -74,6 +79,34 @@ describe("shared document page", () => {
     expect(html).toContain(sanitizedHtml);
     expect(mocks.recordShareAccess).toHaveBeenCalledTimes(1);
     expect(mocks.recordShareAccess).toHaveBeenCalledWith("share-1");
+  });
+
+  it("renders a never-expiring link and tells the viewer it has no deadline", async () => {
+    mocks.getShareByToken.mockResolvedValue({
+      kind: "active",
+      nodeId: "node-1",
+      share: share("active", { expiresAt: null }),
+    });
+
+    const html = await render("never-expiring-token");
+
+    expect(html).toContain(sanitizedHtml);
+    expect(html).toContain("Link does not expire");
+    expect(mocks.recordShareAccess).toHaveBeenCalledWith("share-1");
+  });
+
+  it("never shows the owner-facing link name to a viewer", async () => {
+    mocks.getShareByToken.mockResolvedValue({
+      kind: "active",
+      nodeId: "node-1",
+      share: share("active", { name: "Client preview — confidential" }),
+    });
+
+    const html = await render("named-token");
+
+    expect(html).toContain(sanitizedHtml);
+    expect(html).not.toContain("Client preview");
+    expect(html).not.toContain("confidential");
   });
 
   it("never renders the document for an expired link", async () => {
