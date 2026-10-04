@@ -199,7 +199,7 @@ export function ApiKeysPanel() {
           }
         }}
       >
-        <DialogContent className="sm:max-w-md rounded-xl p-5 border-border/80 shadow-md">
+        <DialogContent className="sm:max-w-md rounded-xl p-5 border-border/80 shadow-md min-w-0 overflow-hidden">
           {!newToken ? (
             <>
               <DialogHeader className="space-y-1 pb-1">
@@ -290,30 +290,37 @@ export function ApiKeysPanel() {
                 </DialogDescription>
               </DialogHeader>
 
-              <div className="space-y-4 pt-1">
-                <div className="flex items-center gap-2 rounded-md border border-emerald-600/30 bg-emerald-600/5 p-2">
-                  <code className="min-w-0 flex-1 truncate px-1 font-mono text-xs select-all font-semibold text-foreground">
-                    {newToken}
-                  </code>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => void copy(newToken, "dialog-token")}
-                    className="gap-1 text-xs shrink-0 h-7"
-                  >
-                    {copiedKey === "dialog-token" ? (
-                      <>
-                        <Check className="size-3 text-emerald-600" />
-                        <span>Copied</span>
-                      </>
-                    ) : (
-                      <>
-                        <Clipboard className="size-3" />
-                        <span>Copy</span>
-                      </>
-                    )}
-                  </Button>
+              <div className="space-y-4 pt-1 min-w-0">
+                <div className="flex flex-col gap-2 rounded-lg border border-emerald-600/30 bg-emerald-600/5 p-3 min-w-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[11px] font-medium text-emerald-700 dark:text-emerald-400">
+                      API token
+                    </span>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => void copy(newToken, "dialog-token")}
+                      className="gap-1.5 text-xs shrink-0 h-7 px-2.5 bg-background hover:bg-muted font-medium"
+                    >
+                      {copiedKey === "dialog-token" ? (
+                        <>
+                          <Check className="size-3 text-emerald-600 dark:text-emerald-400" />
+                          <span>Copied</span>
+                        </>
+                      ) : (
+                        <>
+                          <Clipboard className="size-3" />
+                          <span>Copy key</span>
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                  <div className="rounded-md border border-border/60 bg-muted/60 p-2.5 min-w-0 overflow-hidden">
+                    <code className="block font-mono text-xs select-all break-all font-medium text-foreground leading-relaxed">
+                      {newToken}
+                    </code>
+                  </div>
                 </div>
 
                 <div className="flex justify-end pt-1">
@@ -324,7 +331,7 @@ export function ApiKeysPanel() {
                       setShowCreateDialog(false);
                       setNewToken(null);
                     }}
-                    className="text-xs h-7.5 font-medium"
+                    className="text-xs h-7.5 font-medium px-4"
                   >
                     Done
                   </Button>
