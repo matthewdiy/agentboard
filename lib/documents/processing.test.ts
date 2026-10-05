@@ -121,6 +121,57 @@ describe("renderDocument math", () => {
   });
 });
 
+describe("renderDocument code highlight", () => {
+  it("highlights TypeScript code blocks with semantic hljs spans", async () => {
+    const source = "```typescript\ninterface AgentRecord {\n  id: string;\n  count: number;\n}\n```";
+    const html = await renderDocument("markdown", source, []);
+
+    expect(html).toContain('<pre><code class="hljs language-typescript">');
+    expect(html).toContain('<span class="hljs-keyword">interface</span>');
+    expect(html).toContain('<span class="hljs-title class_">AgentRecord</span>');
+    expect(html).toContain('<span class="hljs-built_in">string</span>');
+    expect(html).toContain('<span class="hljs-built_in">number</span>');
+  });
+
+  it("highlights Python code blocks", async () => {
+    const source = "```python\ndef compute_embedding(text: str) -> list:\n    # Return vector\n    return [0.1, 0.2]\n```";
+    const html = await renderDocument("markdown", source, []);
+
+    expect(html).toContain('<pre><code class="hljs language-python">');
+    expect(html).toContain('<span class="hljs-keyword">def</span>');
+    expect(html).toContain('<span class="hljs-title function_">compute_embedding</span>');
+    expect(html).toContain('<span class="hljs-comment"># Return vector</span>');
+    expect(html).toContain('<span class="hljs-keyword">return</span>');
+    expect(html).toContain('<span class="hljs-number">0.1</span>');
+  });
+
+  it("renders untagged code blocks cleanly without errors", async () => {
+    const source = "```\nPlain text content\nwithout language tag\n```";
+    const html = await renderDocument("markdown", source, []);
+
+    expect(html).toContain("<pre><code>");
+    expect(html).toContain("Plain text content");
+    expect(html).not.toContain("hljs-");
+  });
+
+  it("handles unknown language tags gracefully without failing", async () => {
+    const source = "```unknownnonexistentlang\nfoo = bar()\n```";
+    const html = await renderDocument("markdown", source, []);
+
+    expect(html).toContain("foo = bar()");
+    expect(html).toContain("<pre><code");
+  });
+
+  it("sanitizes malicious markup inside code blocks while preserving hljs spans", async () => {
+    const source = '```javascript\nconst x = "<img src=x onerror=alert(1)>";\n```';
+    const html = await renderDocument("markdown", source, []);
+
+    expect(html).toContain('<span class="hljs-keyword">const</span>');
+    expect(html).toContain('<span class="hljs-string">"&lt;img src=x onerror=alert(1)&gt;"</span>');
+    expect(html).not.toContain("<img");
+  });
+});
+
 describe("parseDocumentUpload", () => {
   it("normalizes an optional document path", async () => {
     const formData = new FormData();

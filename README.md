@@ -16,6 +16,7 @@ Document metadata lives in Postgres and image bytes live in Netlify Blobs. Local
 - **Bundled images** — local images travel with the document in one multipart request and each is rewritten to an unguessable `/assets/:id` URL served with immutable cache headers.
 - **Sanitized previews** — a reading view rendered from `sanitizedHtml`; scripts, event handlers, embeds, styles, and unsafe URL schemes are stripped from both rendered Markdown and uploaded HTML.
 - **Math** — LaTeX in Markdown is converted to self-contained MathML at upload time, so formulas need no stylesheet and inherit the reading typography.
+- **Code highlighting** — fenced code blocks in Markdown are highlighted at upload time with support for standard languages and theme-aware styling, requiring no client-side runtime.
 - **Folders without a folder API** — `path=/product/research.md` creates `/product` automatically. A tree endpoint returns one directory at a time for filesystem-style browsing, and folders that empty out are pruned.
 - **Search and pagination** — filter documents by title or path with `q`, and page through results with cursors.
 - **Scoped API keys** — `documents:read` and `documents:write` bearer keys, created and deleted from the dashboard.

@@ -1,3 +1,4 @@
+import rehypeHighlight from "rehype-highlight";
 import rehypeKatex from "rehype-katex";
 import rehypeRaw from "rehype-raw";
 import rehypeStringify from "rehype-stringify";
@@ -266,15 +267,24 @@ const safeHtmlOptions: sanitizeHtml.IOptions = {
     img: ["src", "alt", "title", "width", "height", "loading"],
     th: ["colspan", "rowspan"],
     td: ["colspan", "rowspan"],
-    // KaTeX wraps MathML in <span class="katex">, which is the only styling
-    // hook the reading view needs.
+    // KaTeX wraps MathML in <span class="katex">; rehype-highlight wraps tokens
+    // in <span class="hljs-*">.
     span: ["class"],
+    code: ["class"],
+    pre: ["class"],
     ...mathmlAttributes,
   },
   allowedClasses: {
     // `katex-error` marks a formula KaTeX could not parse, so a broken equation
     // stays visible to whoever uploaded it instead of reading as plain text.
-    span: ["katex", "katex-error"],
+    span: [
+      "katex",
+      "katex-error",
+      /^hljs(-[a-z0-9_-]+)?$/i,
+      /^[a-z]+_{1,2}$/i,
+    ],
+    code: [/^language-/, "hljs"],
+    pre: ["hljs"],
   },
   allowedSchemes: ["http", "https", "mailto"],
   allowedSchemesByTag: {
@@ -308,6 +318,7 @@ export async function renderDocument(
             .use(remarkMath)
             .use(remarkRehype, { allowDangerousHtml: true })
             .use(rehypeRaw)
+            .use(rehypeHighlight)
             // MathML output keeps KaTeX self-contained: no stylesheet, no inline
             // styles, and a sanitizer allowlist small enough to audit.
             // rehype-katex renders unparseable formulas as a `katex-error` span
