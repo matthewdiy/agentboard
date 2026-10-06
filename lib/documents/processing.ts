@@ -224,6 +224,73 @@ const mathmlAttributes: sanitizeHtml.IOptions["allowedAttributes"] = {
   munderover: ["accent", "accentunder"],
 };
 
+export function normalizeVideoEmbedUrl(urlStr: string): string {
+  try {
+    const url = new URL(urlStr);
+    const host = url.hostname.toLowerCase();
+
+    // YouTube: www.youtube.com, youtube.com, m.youtube.com
+    if (host === "www.youtube.com" || host === "youtube.com" || host === "m.youtube.com") {
+      if (url.pathname === "/watch") {
+        const id = url.searchParams.get("v");
+        if (id) {
+          const start = url.searchParams.get("t") || url.searchParams.get("start");
+          const embedUrl = new URL(`https://www.youtube.com/embed/${encodeURIComponent(id)}`);
+          if (start) {
+            const seconds = parseInt(start, 10);
+            embedUrl.searchParams.set("start", String(isNaN(seconds) ? start : seconds));
+          }
+          return embedUrl.toString();
+        }
+      } else if (url.pathname.startsWith("/shorts/")) {
+        const id = url.pathname.slice("/shorts/".length).split("/")[0];
+        if (id) return `https://www.youtube.com/embed/${encodeURIComponent(id)}`;
+      }
+    } else if (host === "youtu.be") {
+      const id = url.pathname.slice(1).split("/")[0];
+      if (id) {
+        const start = url.searchParams.get("t") || url.searchParams.get("start");
+        const embedUrl = new URL(`https://www.youtube.com/embed/${encodeURIComponent(id)}`);
+        if (start) {
+          const seconds = parseInt(start, 10);
+          embedUrl.searchParams.set("start", String(isNaN(seconds) ? start : seconds));
+        }
+        return embedUrl.toString();
+      }
+    }
+
+    // Vimeo: vimeo.com/ID -> player.vimeo.com/video/ID
+    if (host === "vimeo.com") {
+      const match = url.pathname.match(/^\/(\d+)/);
+      if (match) return `https://player.vimeo.com/video/${match[1]}`;
+    }
+
+    // Loom: loom.com/share/ID -> www.loom.com/embed/ID
+    if (host === "www.loom.com" || host === "loom.com") {
+      if (url.pathname.startsWith("/share/")) {
+        const id = url.pathname.slice("/share/".length).split("/")[0];
+        if (id) return `https://www.loom.com/embed/${encodeURIComponent(id)}`;
+      }
+    }
+
+    // Bilibili: bilibili.com/video/BVID -> player.bilibili.com/player.html?bvid=BVID&page=1
+    if (host === "www.bilibili.com" || host === "bilibili.com") {
+      const match = url.pathname.match(/\/video\/(BV[a-zA-Z0-9]+)/i);
+      if (match) return `https://player.bilibili.com/player.html?bvid=${match[1]}&page=1`;
+    }
+
+    // Dailymotion: dailymotion.com/video/ID -> www.dailymotion.com/embed/video/ID
+    if (host === "www.dailymotion.com" || host === "dailymotion.com") {
+      if (url.pathname.startsWith("/video/")) {
+        const id = url.pathname.slice("/video/".length).split("/")[0];
+        if (id) return `https://www.dailymotion.com/embed/video/${encodeURIComponent(id)}`;
+      }
+    }
+  } catch {}
+
+  return urlStr;
+}
+
 const safeHtmlOptions: sanitizeHtml.IOptions = {
   allowedTags: [
     "a",
@@ -242,12 +309,14 @@ const safeHtmlOptions: sanitizeHtml.IOptions = {
     "h5",
     "h6",
     "hr",
+    "iframe",
     "img",
     "li",
     "ol",
     "p",
     "pre",
     "s",
+    "source",
     "strong",
     "summary",
     "sub",
@@ -259,12 +328,40 @@ const safeHtmlOptions: sanitizeHtml.IOptions = {
     "th",
     "thead",
     "tr",
+    "track",
     "ul",
+    "video",
     ...mathmlTags,
   ],
   allowedAttributes: {
     a: ["href", "title", "target", "rel"],
     img: ["src", "alt", "title", "width", "height", "loading"],
+    iframe: [
+      "src",
+      "width",
+      "height",
+      "title",
+      "allow",
+      "allowfullscreen",
+      "loading",
+      "frameborder",
+      "referrerpolicy",
+    ],
+    video: [
+      "src",
+      "controls",
+      "width",
+      "height",
+      "poster",
+      "preload",
+      "loop",
+      "muted",
+      "playsinline",
+      "title",
+      "autoplay",
+    ],
+    source: ["src", "type"],
+    track: ["src", "kind", "srclang", "label", "default"],
     th: ["colspan", "rowspan"],
     td: ["colspan", "rowspan"],
     // KaTeX wraps MathML in <span class="katex">; rehype-highlight wraps tokens
@@ -286,12 +383,52 @@ const safeHtmlOptions: sanitizeHtml.IOptions = {
     code: [/^language-/, "hljs"],
     pre: ["hljs"],
   },
+  allowedIframeHostnames: [
+    "www.youtube.com",
+    "www.youtube-nocookie.com",
+    "player.vimeo.com",
+    "www.loom.com",
+    "player.bilibili.com",
+    "www.dailymotion.com",
+  ],
   allowedSchemes: ["http", "https", "mailto"],
   allowedSchemesByTag: {
     a: ["http", "https", "mailto"],
     img: ["http", "https"],
+    iframe: ["https"],
+    video: ["http", "https"],
+    source: ["http", "https"],
+    track: ["http", "https"],
   },
-  allowProtocolRelative: false,
+  allowIframeRelativeUrls: false,
+  transformTags: {
+    iframe: (tagName, attribs) => {
+      let src = attribs.src;
+      if (src) src = normalizeVideoEmbedUrl(src);
+      return { tagName, attribs: { ...attribs, src } };
+    },
+    img: (tagName, attribs) => {
+      const src = attribs.src || "";
+      if (/\.(mp4|webm|ogg|mov)(\?.*)?$/i.test(src)) {
+        return {
+          tagName: "video",
+          attribs: {
+            src,
+            controls: "",
+            playsinline: "",
+            title: attribs.alt || attribs.title || "",
+          },
+        };
+      }
+      return { tagName, attribs };
+    },
+  },
+  exclusiveFilter: (frame) => {
+    if (frame.tag === "iframe" && !frame.attribs.src) return true;
+    if (frame.tag === "source" && !frame.attribs.src) return true;
+    if (frame.tag === "track" && !frame.attribs.src) return true;
+    return false;
+  },
   disallowedTagsMode: "discard",
   enforceHtmlBoundary: true,
 };

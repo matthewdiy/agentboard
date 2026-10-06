@@ -172,6 +172,106 @@ describe("renderDocument code highlight", () => {
   });
 });
 
+describe("renderDocument video embedding", () => {
+  it("renders standard YouTube embed iframes", async () => {
+    const source = '<iframe src="https://www.youtube.com/embed/dQw4w9WgXcQ" allowfullscreen></iframe>';
+    const html = await renderDocument("markdown", source, []);
+
+    expect(html).toContain('<iframe src="https://www.youtube.com/embed/dQw4w9WgXcQ" allowfullscreen');
+  });
+
+  it("normalizes YouTube watch links to embed URLs", async () => {
+    const source = '<iframe src="https://www.youtube.com/watch?v=dQw4w9WgXcQ"></iframe>';
+    const html = await renderDocument("markdown", source, []);
+
+    expect(html).toContain('<iframe src="https://www.youtube.com/embed/dQw4w9WgXcQ"');
+  });
+
+  it("normalizes youtu.be shortlinks with timestamps to embed URLs", async () => {
+    const source = '<iframe src="https://youtu.be/dQw4w9WgXcQ?t=45"></iframe>';
+    const html = await renderDocument("markdown", source, []);
+
+    expect(html).toContain('<iframe src="https://www.youtube.com/embed/dQw4w9WgXcQ?start=45"');
+  });
+
+  it("normalizes YouTube shorts URLs to embed URLs", async () => {
+    const source = '<iframe src="https://www.youtube.com/shorts/abc123xyz"></iframe>';
+    const html = await renderDocument("markdown", source, []);
+
+    expect(html).toContain('<iframe src="https://www.youtube.com/embed/abc123xyz"');
+  });
+
+  it("normalizes Vimeo video URLs to embed URLs", async () => {
+    const source = '<iframe src="https://vimeo.com/76979871"></iframe>';
+    const html = await renderDocument("markdown", source, []);
+
+    expect(html).toContain('<iframe src="https://player.vimeo.com/video/76979871"');
+  });
+
+  it("normalizes Loom share URLs to embed URLs", async () => {
+    const source = '<iframe src="https://www.loom.com/share/1234567890abcdef"></iframe>';
+    const html = await renderDocument("markdown", source, []);
+
+    expect(html).toContain('<iframe src="https://www.loom.com/embed/1234567890abcdef"');
+  });
+
+  it("normalizes Bilibili video URLs to embed URLs", async () => {
+    const source = '<iframe src="https://www.bilibili.com/video/BV1xx411c7mD"></iframe>';
+    const html = await renderDocument("markdown", source, []);
+
+    expect(html).toContain('<iframe src="https://player.bilibili.com/player.html?bvid=BV1xx411c7mD&amp;page=1"');
+  });
+
+  it("normalizes Dailymotion video URLs to embed URLs", async () => {
+    const source = '<iframe src="https://www.dailymotion.com/video/x7tgad0"></iframe>';
+    const html = await renderDocument("markdown", source, []);
+
+    expect(html).toContain('<iframe src="https://www.dailymotion.com/embed/video/x7tgad0"');
+  });
+
+  it("preserves HTML5 video tags with controls and poster", async () => {
+    const source = '<video src="https://cdn.example.com/demo.mp4" controls poster="https://cdn.example.com/poster.jpg" preload="metadata"></video>';
+    const html = await renderDocument("markdown", source, []);
+
+    expect(html).toContain('<video src="https://cdn.example.com/demo.mp4" controls poster="https://cdn.example.com/poster.jpg" preload="metadata"></video>');
+  });
+
+  it("preserves HTML5 video with source and track children", async () => {
+    const source = '<video controls><source src="https://cdn.example.com/demo.webm" type="video/webm"><track src="https://cdn.example.com/sub.vtt" kind="subtitles" srclang="en" label="English"></video>';
+    const html = await renderDocument("markdown", source, []);
+
+    expect(html).toContain('<video controls>');
+    expect(html).toContain('<source src="https://cdn.example.com/demo.webm" type="video/webm"');
+    expect(html).toContain('<track src="https://cdn.example.com/sub.vtt" kind="subtitles" srclang="en" label="English"');
+  });
+
+  it("auto-converts Markdown image syntax with video extension to a video tag", async () => {
+    const source = "![Product Demo](https://cdn.example.com/walkthrough.mp4)";
+    const html = await renderDocument("markdown", source, []);
+
+    expect(html).toContain('<video src="https://cdn.example.com/walkthrough.mp4" controls playsinline title="Product Demo"></video>');
+    expect(html).not.toContain("<img");
+  });
+
+  it("discards iframes pointing to unauthorized hostnames", async () => {
+    const source = '<iframe src="https://evil.com/phishing"></iframe>';
+    const html = await renderDocument("markdown", source, []);
+
+    expect(html).not.toContain("<iframe");
+    expect(html).not.toContain("evil.com");
+  });
+
+  it("strips insecure javascript: schemes and onerror handlers from video elements", async () => {
+    const source = '<video src="javascript:alert(1)" onerror="alert(2)"></video>';
+    const html = await renderDocument("markdown", source, []);
+
+    expect(html).not.toContain("javascript:");
+    expect(html).not.toContain("onerror");
+    expect(html).not.toContain("alert");
+  });
+});
+
+
 describe("parseDocumentUpload", () => {
   it("normalizes an optional document path", async () => {
     const formData = new FormData();

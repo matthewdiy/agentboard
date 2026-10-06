@@ -104,6 +104,29 @@ The server rejects absolute image paths, Windows drive paths, traversal (`..`), 
 
 `--no-assets` skips image upload for a document that references no local images; it fails rather than sending a document with unresolved links.
 
+## Video embedding
+
+Agentboard supports embedding online videos in Markdown and HTML documents with responsive 16:9 players:
+
+1. **Third-Party Video Platforms (YouTube, Vimeo, Loom, Bilibili, Dailymotion)**:
+   Embed directly using an `<iframe>`:
+   ```html
+   <iframe src="https://www.youtube.com/embed/dQw4w9WgXcQ" allowfullscreen></iframe>
+   ```
+   *Tip*: Standard watch and share URLs (e.g. `https://www.youtube.com/watch?v=...`, `https://youtu.be/...`, `https://vimeo.com/...`, `https://www.loom.com/share/...`) are automatically normalized to embed players.
+2. **Direct Online Videos (MP4, WebM, Ogg, MOV)**:
+   - Use standard HTML5 `<video>` tags:
+     ```html
+     <video src="https://example.com/demo.mp4" controls width="100%"></video>
+     ```
+   - Or write Markdown image syntax with a video extension:
+     ```markdown
+     ![Demo Walkthrough](https://example.com/demo.mp4)
+     ```
+     The server automatically converts `.mp4`, `.webm`, `.ogg`, and `.mov` links to responsive video players with controls.
+3. **Always Host Videos Remotely**:
+   Local video binaries (`.mp4`, etc.) are not accepted in multipart bundles due to size limits. Always stream videos from remote CDNs or video hosting platforms.
+
 ## Read and update
 
 - `list` and `search` return lightweight metadata only, newest first, 50 per page; when the output ends with `more: <cursor>`, repeat the call with `--cursor <value>`.

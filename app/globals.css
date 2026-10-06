@@ -366,13 +366,31 @@
   font-weight: bold;
 }
 
-.document-content img {
+.document-content img,
+.document-content video {
   display: block;
   height: auto;
   max-width: 100%;
   border-radius: var(--radius-md);
   border: 1px solid var(--border);
   margin: 1.5rem auto;
+}
+
+.document-content iframe {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  margin: 1.5rem auto;
+  background-color: var(--code-bg);
+}
+
+.document-content figure > img,
+.document-content figure > video,
+.document-content figure > iframe {
+  margin: 0 auto;
 }
 
 .document-content table {

@@ -1,5 +1,11 @@
 # Agentboard
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-10b981.svg)](LICENSE)
+[![Next.js](https://img.shields.io/badge/Next.js-16.3-black?logo=next.js&logoColor=white)](https://nextjs.org/)
+[![Netlify Status](https://api.netlify.com/api/v1/badges/4dd188ab-806d-4d3d-bfbc-4e210e2d36c0/deploy-status)](https://app.netlify.com/projects/agentboardz/deploys)
+[![React](https://img.shields.io/badge/React-19-61dafb?logo=react&logoColor=black)](https://react.dev/)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/matthewdiy/agentboard/pulls)
+
 A private document bridge for AI agents. Upload Markdown or HTML documents together with their local images, browse them in a small web library, and read, search, replace, or delete them over a token-authenticated HTTP API.
 
 Document metadata lives in Postgres and image bytes live in Netlify Blobs. Local image references are rewritten to stable public asset URLs at upload time, so a document keeps working after the original files are gone.
@@ -17,6 +23,7 @@ Document metadata lives in Postgres and image bytes live in Netlify Blobs. Local
 - **Sanitized previews** — a reading view rendered from `sanitizedHtml`; scripts, event handlers, embeds, styles, and unsafe URL schemes are stripped from both rendered Markdown and uploaded HTML.
 - **Math** — LaTeX in Markdown is converted to self-contained MathML at upload time, so formulas need no stylesheet and inherit the reading typography.
 - **Code highlighting** — fenced code blocks in Markdown are highlighted at upload time with support for standard languages and theme-aware styling, requiring no client-side runtime.
+- **Online video embedding** — YouTube, Vimeo, Loom, Bilibili, and Dailymotion embeds as well as direct HTML5 video (`.mp4`, `.webm`, `.ogg`, `.mov`) are sanitized and rendered with responsive 16:9 aspect ratios. Standard share links and Markdown image syntax (`![alt](url.mp4)`) are automatically converted.
 - **Folders without a folder API** — `path=/product/research.md` creates `/product` automatically. A tree endpoint returns one directory at a time for filesystem-style browsing, and folders that empty out are pruned.
 - **Search and pagination** — filter documents by title or path with `q`, and page through results with cursors.
 - **Scoped API keys** — `documents:read` and `documents:write` bearer keys, created and deleted from the dashboard.
@@ -163,3 +170,7 @@ Schema changes: run `pnpm db:auth:schema` to regenerate the Better Auth tables, 
 Two vendored files carry a local fix marked with a `Local fix:` comment: `data-active` in `components/ui/sidebar.tsx` and `data-inset` in `components/ui/dropdown-menu.tsx` are omitted rather than set to `false`, because Tailwind matches those variants on attribute presence. `components/ui/sidebar.test.tsx` guards the sidebar case, and `pnpm dlx shadcn@latest add <name> --overwrite` reintroduces the bug in either file.
 
 Theme tokens live in `app/globals.css` and are configured through `components.json`. Repository conventions for agent contributors are in [`AGENTS.md`](AGENTS.md).
+
+## License
+
+[MIT](LICENSE)
