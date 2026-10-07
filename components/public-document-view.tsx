@@ -1,12 +1,11 @@
+import { DocumentArticle } from "@/components/document-article";
 import { ThemeToggle } from "@/components/theme-toggle";
 import type { SharedDocument } from "@/lib/documents/service";
 import { formatDate, formatRelative } from "@/lib/format";
 
 /**
- * The public reading view. It stays a server component: the only client
- * JavaScript it ships is the theme toggle, and everything else a visitor sees
- * is the document, with no dashboard chrome, navigation, internal path, or
- * document id.
+ * The public reading view. Visitors see the document, its metadata, and the
+ * theme toggle, with progressive enhancement for diagrams.
  */
 export function PublicDocumentView({
   document,
@@ -36,10 +35,7 @@ export function PublicDocumentView({
         </p>
       </header>
 
-      <article
-        className="document-content pb-4"
-        dangerouslySetInnerHTML={{ __html: document.sanitizedHtml }}
-      />
+      <DocumentArticle html={document.sanitizedHtml} className="pb-4" />
 
       <footer className="mt-12 border-t border-border/70 pt-4 text-xs text-muted-foreground">
         {expiresAt

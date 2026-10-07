@@ -23,6 +23,7 @@ Document metadata lives in Postgres and image bytes live in Netlify Blobs. Local
 - **Sanitized previews** — a reading view rendered from `sanitizedHtml`; scripts, event handlers, embeds, styles, and unsafe URL schemes are stripped from both rendered Markdown and uploaded HTML.
 - **Math** — LaTeX in Markdown is converted to self-contained MathML at upload time, so formulas need no stylesheet and inherit the reading typography.
 - **Code highlighting** — fenced code blocks in Markdown are highlighted at upload time with support for standard languages and theme-aware styling, requiring no client-side runtime.
+- **Mermaid diagrams** — native rendering of flowcharts, sequence diagrams, class models, state machines, ER diagrams, mindmaps, and architecture graphs with adaptive dark/light theme styling, interactive expand modal, and source toggle.
 - **Online video embedding** — YouTube, Vimeo, Loom, Bilibili, and Dailymotion embeds as well as direct HTML5 video (`.mp4`, `.webm`, `.ogg`, `.mov`) are sanitized and rendered with responsive 16:9 aspect ratios. Standard share links and Markdown image syntax (`![alt](url.mp4)`) are automatically converted.
 - **Folders without a folder API** — `path=/product/research.md` creates `/product` automatically. A tree endpoint returns one directory at a time for filesystem-style browsing, and folders that empty out are pruned.
 - **Search and pagination** — filter documents by title or path with `q`, and page through results with cursors.

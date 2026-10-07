@@ -299,6 +299,7 @@ const safeHtmlOptions: sanitizeHtml.IOptions = {
     "code",
     "del",
     "details",
+    "div",
     "em",
     "figcaption",
     "figure",
@@ -364,6 +365,7 @@ const safeHtmlOptions: sanitizeHtml.IOptions = {
     track: ["src", "kind", "srclang", "label", "default"],
     th: ["colspan", "rowspan"],
     td: ["colspan", "rowspan"],
+    div: ["class"],
     // KaTeX wraps MathML in <span class="katex">; rehype-highlight wraps tokens
     // in <span class="hljs-*">.
     span: ["class"],
@@ -380,8 +382,9 @@ const safeHtmlOptions: sanitizeHtml.IOptions = {
       /^hljs(-[a-z0-9_-]+)?$/i,
       /^[a-z]+_{1,2}$/i,
     ],
-    code: [/^language-/, "hljs"],
-    pre: ["hljs"],
+    code: [/^language-/, "hljs", "mermaid"],
+    pre: ["hljs", "mermaid"],
+    div: ["mermaid"],
   },
   allowedIframeHostnames: [
     "www.youtube.com",

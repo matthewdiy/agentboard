@@ -271,6 +271,35 @@ describe("renderDocument video embedding", () => {
   });
 });
 
+describe("renderDocument mermaid diagrams", () => {
+  it("preserves Markdown mermaid code blocks with clean language class", async () => {
+    const source = "```mermaid\ngraph TD;\n    A[Client] --> B[Server];\n```";
+    const html = await renderDocument("markdown", source, []);
+
+    expect(html).toContain('<pre><code class="hljs language-mermaid">');
+    expect(html).toContain("graph TD;");
+    expect(html).toContain("A[Client] --&gt; B[Server];");
+  });
+
+  it("preserves explicit HTML div.mermaid and pre.mermaid elements", async () => {
+    const source = '<div class="mermaid">flowchart LR\n  X --> Y</div><pre class="mermaid"><code>graph TD\n  1 --> 2</code></pre>';
+    const html = await renderDocument("html", source, []);
+
+    expect(html).toContain('<div class="mermaid">flowchart LR\n  X --&gt; Y</div>');
+    expect(html).toContain('<pre class="mermaid"><code>graph TD\n  1 --&gt; 2</code></pre>');
+  });
+
+  it("sanitizes event handlers and scripts inside mermaid blocks", async () => {
+    const source = '<div class="mermaid" onclick="alert(1)"><script>alert(2)</script>sequenceDiagram\nAlice->>Bob: Hello</div>';
+    const html = await renderDocument("html", source, []);
+
+    expect(html).toContain('<div class="mermaid">');
+    expect(html).not.toContain("onclick");
+    expect(html).not.toContain("<script");
+    expect(html).toContain("Alice-&gt;&gt;Bob: Hello");
+  });
+});
+
 
 describe("parseDocumentUpload", () => {
   it("normalizes an optional document path", async () => {

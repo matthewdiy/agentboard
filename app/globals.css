@@ -442,3 +442,26 @@
   font-family: var(--font-mono), monospace;
   font-size: 0.85em;
 }
+
+/* Mermaid Diagrams */
+.mermaid-wrapper {
+  margin: 1.5rem 0;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--card);
+  overflow: hidden;
+}
+
+.mermaid-diagram {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow-x: auto;
+}
+
+.mermaid-diagram svg {
+  max-width: 100%;
+  height: auto;
+  font-family: inherit;
+}
+

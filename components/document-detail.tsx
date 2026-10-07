@@ -3,6 +3,7 @@
 import { Check, Clock, Copy, HardDrive } from "lucide-react";
 
 import { DocumentActions } from "@/components/document-actions";
+import { DocumentArticle } from "@/components/document-article";
 import { DocumentShareDialog } from "@/components/document-share-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -64,9 +65,9 @@ export function DocumentDetail({ document }: { document: DocumentResponse }) {
       </div>
 
       {/* Reading Document Article */}
-      <article
-        className="document-content pt-2 pb-12"
-        dangerouslySetInnerHTML={{ __html: document.sanitizedHtml }}
+      <DocumentArticle
+        html={document.sanitizedHtml}
+        className="pt-2 pb-12"
       />
     </div>
   );
