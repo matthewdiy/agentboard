@@ -62,7 +62,7 @@ export function AppShell({
             </div>
           </header>
 
-          <main className="flex-1 w-full max-w-5xl mx-auto px-4 py-6 sm:px-6 md:px-8">
+          <main className="flex-1 w-full max-w-5xl xl:max-w-7xl mx-auto px-4 py-6 sm:px-6 md:px-8">
             {children}
           </main>
         </SidebarInset>

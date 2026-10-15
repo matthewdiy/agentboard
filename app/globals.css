@@ -199,6 +199,7 @@
   letter-spacing: -0.015em;
   line-height: 1.35;
   margin: 1.6em 0 0.6em;
+  scroll-margin-top: 5rem;
 }
 
 .document-content h1 {

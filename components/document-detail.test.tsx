@@ -54,4 +54,30 @@ describe("DocumentDetail", () => {
     expect(html).toContain("Architecture Heading");
     expect(html).toContain("Doc content here");
   });
+
+  it("renders Table of Contents and injects anchor IDs when document contains multiple headings", () => {
+    const multiHeadingDoc: DocumentResponse = {
+      ...sampleDoc,
+      sanitizedHtml:
+        "<h2>Introduction</h2><p>Intro</p><h2>System Architecture</h2><p>Arch</p><h3>Database Layer</h3><p>DB</p>",
+    };
+
+    const html = renderToStaticMarkup(
+      <DocumentTreeProvider initialPage={dummyTreePage}>
+        <DocumentDetail document={multiHeadingDoc} />
+      </DocumentTreeProvider>,
+    );
+
+    // Article content has anchor IDs injected
+    expect(html).toContain('<h2 id="introduction">Introduction</h2>');
+    expect(html).toContain('<h2 id="system-architecture">System Architecture</h2>');
+    expect(html).toContain('<h3 id="database-layer">Database Layer</h3>');
+
+    // Table of contents navigation is rendered
+    expect(html).toContain("On this page");
+    expect(html).toContain('href="#introduction"');
+    expect(html).toContain('href="#system-architecture"');
+    expect(html).toContain('href="#database-layer"');
+  });
 });
+

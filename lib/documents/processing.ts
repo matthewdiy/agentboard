@@ -371,6 +371,12 @@ const safeHtmlOptions: sanitizeHtml.IOptions = {
     span: ["class"],
     code: ["class"],
     pre: ["class"],
+    h1: ["id"],
+    h2: ["id"],
+    h3: ["id"],
+    h4: ["id"],
+    h5: ["id"],
+    h6: ["id"],
     ...mathmlAttributes,
   },
   allowedClasses: {

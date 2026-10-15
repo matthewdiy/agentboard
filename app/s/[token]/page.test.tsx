@@ -183,4 +183,25 @@ describe("shared document page", () => {
     expect(meta.robots).toEqual({ index: false, follow: false });
     expect(mocks.getSharedDocument).not.toHaveBeenCalled();
   });
+
+  it("renders Table of Contents and injects anchor IDs when shared document has headings", async () => {
+    mocks.getShareByToken.mockResolvedValue({
+      kind: "active",
+      nodeId: "node-1",
+      share: share("active"),
+    });
+    mocks.getSharedDocument.mockResolvedValue({
+      ...document,
+      sanitizedHtml:
+        "<h2>Project Overview</h2><p>Overview</p><h2>API Reference</h2><p>API</p>",
+    });
+
+    const html = await render("active-token-with-headings");
+
+    expect(html).toContain('<h2 id="project-overview">Project Overview</h2>');
+    expect(html).toContain('<h2 id="api-reference">API Reference</h2>');
+    expect(html).toContain("On this page");
+    expect(html).toContain('href="#project-overview"');
+    expect(html).toContain('href="#api-reference"');
+  });
 });

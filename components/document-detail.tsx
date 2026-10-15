@@ -1,21 +1,38 @@
 "use client";
 
+import { useMemo } from "react";
 import { Check, Clock, Copy, HardDrive } from "lucide-react";
+import { cn } from "cn";
 
 import { DocumentActions } from "@/components/document-actions";
 import { DocumentArticle } from "@/components/document-article";
 import { DocumentShareDialog } from "@/components/document-share-dialog";
+import { FloatingToc } from "@/components/floating-toc";
+import { TableOfContents } from "@/components/table-of-contents";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { DocumentResponse } from "@/lib/documents/service";
+import { processHtmlHeadings } from "@/lib/documents/toc";
 import { formatBytes, formatRelative } from "@/lib/format";
 import { useCopyToClipboard } from "@/lib/hooks/use-copy-to-clipboard";
 
 export function DocumentDetail({ document }: { document: DocumentResponse }) {
   const { copiedKey, copy } = useCopyToClipboard();
 
+  const { html: processedHtml, headings } = useMemo(
+    () => processHtmlHeadings(document.sanitizedHtml),
+    [document.sanitizedHtml],
+  );
+
+  const hasToc = headings.length > 1;
+
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-6">
+    <div
+      className={cn(
+        "mx-auto w-full space-y-6",
+        hasToc ? "max-w-6xl 2xl:max-w-7xl" : "max-w-4xl",
+      )}
+    >
       {/* Top Bar: Metadata on the left, copy action & hamburger menu on the right */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/70 pb-3">
         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
@@ -48,7 +65,9 @@ export function DocumentDetail({ document }: { document: DocumentResponse }) {
             {copiedKey === "path" ? (
               <>
                 <Check className="size-3.5 text-emerald-600 dark:text-emerald-400" />
-                <span className="text-emerald-600 dark:text-emerald-400 font-sans text-xs">Copied</span>
+                <span className="text-emerald-600 dark:text-emerald-400 font-sans text-xs">
+                  Copied
+                </span>
               </>
             ) : (
               <>
@@ -64,11 +83,21 @@ export function DocumentDetail({ document }: { document: DocumentResponse }) {
         </div>
       </div>
 
-      {/* Reading Document Article */}
-      <DocumentArticle
-        html={document.sanitizedHtml}
-        className="pt-2 pb-12"
-      />
+      {/* Main Content Area: Article + Optional Right-hand Sticky Table of Contents */}
+      <div className="flex items-start gap-8">
+        <div className="min-w-0 flex-1 max-w-4xl">
+          <DocumentArticle html={processedHtml} className="pt-2 pb-12" />
+        </div>
+
+        {hasToc && (
+          <aside className="hidden xl:block w-64 shrink-0 sticky top-16">
+            <TableOfContents headings={headings} />
+          </aside>
+        )}
+      </div>
+
+      {/* Floating TOC for mobile and tablet viewports */}
+      {hasToc && <FloatingToc headings={headings} />}
     </div>
   );
 }
